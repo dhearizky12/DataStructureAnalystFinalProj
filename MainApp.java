@@ -1,17 +1,23 @@
 import java.util.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.stream.Stream;
+
 
 /**
  * MainApp.java
  * A simple student management system using:
- *  - HashMap<String, Student> as Hash Table (fast lookup by NIM)
- *  - BST keyed by IPK (double) where each node stores a list of students with same IPK
+ * - HashMap<String, Student> as Hash Table (fast lookup by NIM)
+ * - BST keyed by IPK (double) where each node stores a list of students with same IPK
  *
  * Features:
- *  - insert student
- *  - search by NIM (O(1) avg via HashMap)
- *  - search by IPK (via BST)
- *  - delete by NIM (removes from HashMap and BST)
- *  - inorder traversal of BST (students ascending by IPK)
+ * - insert student
+ * - search by NIM (O(1) avg via HashMap)
+ * - search by IPK (via BST)
+ * - delete by NIM (removes from HashMap and BST)
+ * - inorder traversal of BST (students ascending by IPK)
+ * - Batch upload from .txt file
  *
  * Compile: javac MainApp.java
  * Run    : java MainApp
@@ -156,6 +162,40 @@ public class MainApp {
             return true;
         }
 
+        /**
+         * [NEW METHOD] upload batch menggunakan .txt file.
+         * format per line: NIM,Name,IPK
+         */
+        public void batchUploadFromFile(String filePath) {
+            int successCount = 0;
+            int failedCount = 0;
+            try (Stream<String> stream = Files.lines(Paths.get(filePath))) {
+                stream.forEach(line -> {
+                    String[] parts = line.split(",");
+                    if (parts.length != 3) {
+                        System.out.println(">> SKIPPED: Invalid format -> " + line);
+                        return;
+                    }
+                    try {
+                        String nim = parts[0].trim();
+                        String name = parts[1].trim();
+                        double ipk = Double.parseDouble(parts[2].trim());
+                        if (insertStudent(nim, name, ipk)) {
+                        } else {
+                           System.out.println(">> SKIPPED: NIM already exists -> " + nim);
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println(">> SKIPPED: Invalid IPK format -> " + line);
+                    }
+                });
+                 System.out.println("\n>> Batch upload process finished.");
+                 System.out.println(">> Total students now: " + totalStudents());
+
+            } catch (IOException e) {
+                System.out.println(">> ERROR: File not found or cannot be read -> " + filePath);
+            }
+        }
+
         // search by NIM (fast)
         public Student searchByNim(String nim) {
             return hashTable.get(nim);
@@ -187,89 +227,90 @@ public class MainApp {
 
     // ---- Simple CLI demo ----
     public static void main(String[] args) {
+        // Create a new student manager instance
         StudentManager mgr = new StudentManager();
 
-        // sample data (10-12 students)
-        mgr.insertStudent("20231001", "Alice", 3.75);
-        mgr.insertStudent("20231002", "Bob", 3.50);
-        mgr.insertStudent("20231003", "Charlie", 3.75);
-        mgr.insertStudent("20231004", "Dina", 3.90);
-        mgr.insertStudent("20231005", "Eko", 3.20);
-        mgr.insertStudent("20231006", "Fani", 3.50);
-        mgr.insertStudent("20231007", "Gina", 3.10);
-        mgr.insertStudent("20231008", "Hadi", 3.90);
-        mgr.insertStudent("20231009", "Ika", 2.95);
-        mgr.insertStudent("20231010", "Joko", 3.40);
+        // Welcome message
+        System.out.println("==============================================");
+        System.out.println("Sistem Manajemen Mahasiswa");
+        System.out.println("Database saat ini kosong.");
+        System.out.println("==============================================");
 
-        System.out.println("Total students inserted: " + mgr.totalStudents());
-        System.out.println("\n--- Search by NIM ---");
-        String nimToFind = "20231004";
-        Student found = mgr.searchByNim(nimToFind);
-        System.out.println("Search NIM " + nimToFind + ": " + (found == null ? "Not found" : found));
-
-        System.out.println("\n--- Search by IPK (3.75) ---");
-        List<Student> listIpk = mgr.searchByIpk(3.75);
-        if (listIpk.isEmpty()) System.out.println("No student with IPK 3.75");
-        else listIpk.forEach(s -> System.out.println(s));
-
-        System.out.println("\n--- All students ordered by IPK (ascending) ---");
-        List<Student> ordered = mgr.listAllOrderedByIpk();
-        ordered.forEach(System.out::println);
-
-        System.out.println("\n--- Delete student NIM 20231003 (Charlie) ---");
-        boolean del = mgr.deleteByNim("20231003");
-        System.out.println("Deleted? " + del);
-
-        System.out.println("\n--- All students ordered by IPK after deletion ---");
-        mgr.listAllOrderedByIpk().forEach(System.out::println);
-
-        // interactive simple menu (optional)
+        // Directly start the interactive menu for user input
         interactiveMenu(mgr);
     }
 
     private static void interactiveMenu(StudentManager mgr) {
         Scanner sc = new Scanner(System.in);
         while (true) {
-            System.out.println("\nMenu: 1-Add 2-SearchNIM 3-SearchIPK 4-DeleteNIM 5-ListAll 0-Exit");
+            // Untuk opsi ke 6-Batch-Upload, silahkan dihapuskan saja jika sudah tidak digunakan keperluan batch upload.
+            System.out.println("\nMenu: 1-Add 2-SearchNIM 3-SearchIPK 4-DeleteNIM 5-ListAll 6-Batch-Upload 0-Exit");
             System.out.print("Choice> ");
             String line = sc.nextLine().trim();
             if (line.isEmpty()) continue;
             int choice;
-            try { choice = Integer.parseInt(line); } catch (NumberFormatException e) { continue; }
+            try {
+                choice = Integer.parseInt(line);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+                continue;
+            }
             switch (choice) {
                 case 0:
                     System.out.println("Exit.");
                     sc.close();
                     return;
                 case 1:
-                    System.out.print("NIM: "); String nim = sc.nextLine().trim();
-                    System.out.print("Name: "); String name = sc.nextLine().trim();
-                    System.out.print("IPK: "); double ipk = Double.parseDouble(sc.nextLine().trim());
-                    boolean ok = mgr.insertStudent(nim, name, ipk);
-                    System.out.println(ok ? "Inserted." : "NIM already exists.");
+                    try {
+                        System.out.print("NIM: "); String nim = sc.nextLine().trim();
+                        System.out.print("Name: "); String name = sc.nextLine().trim();
+                        System.out.print("IPK: "); double ipk = Double.parseDouble(sc.nextLine().trim());
+                        boolean ok = mgr.insertStudent(nim, name, ipk);
+                        System.out.println(ok ? ">> Inserted successfully." : ">> ERROR: NIM already exists.");
+                    } catch (NumberFormatException e) {
+                        System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
+                    }
                     break;
                 case 2:
-                    System.out.print("NIM: "); String q = sc.nextLine().trim();
+                    System.out.print("NIM to search: "); String q = sc.nextLine().trim();
                     Student s = mgr.searchByNim(q);
-                    System.out.println(s == null ? "Not found." : s);
+                    System.out.println(s == null ? ">> Not found." : ">> Found: " + s);
                     break;
                 case 3:
-                    System.out.print("IPK: "); double qipk = Double.parseDouble(sc.nextLine().trim());
-                    List<Student> out = mgr.searchByIpk(qipk);
-                    if (out.isEmpty()) System.out.println("No student with that IPK.");
-                    else out.forEach(System.out::println);
+                    try {
+                        System.out.print("IPK to search: "); double qipk = Double.parseDouble(sc.nextLine().trim());
+                        List<Student> out = mgr.searchByIpk(qipk);
+                        if (out.isEmpty()) {
+                            System.out.println(">> No student found with that IPK.");
+                        } else {
+                            System.out.println(">> Found " + out.size() + " student(s):");
+                            out.forEach(System.out::println);
+                        }
+                    } catch (NumberFormatException e) {
+                         System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
+                    }
                     break;
                 case 4:
-                    System.out.print("NIM: "); String d = sc.nextLine().trim();
+                    System.out.print("NIM to delete: "); String d = sc.nextLine().trim();
                     boolean removed = mgr.deleteByNim(d);
-                    System.out.println(removed ? "Deleted." : "NIM not found.");
+                    System.out.println(removed ? ">> Deleted successfully." : ">> ERROR: NIM not found.");
                     break;
                 case 5:
-                    System.out.println("All students (by IPK asc):");
-                    mgr.listAllOrderedByIpk().forEach(System.out::println);
+                    System.out.println("--- All students (ordered by IPK ascending) ---");
+                    List<Student> allStudents = mgr.listAllOrderedByIpk();
+                    if (allStudents.isEmpty()) {
+                        System.out.println(">> Database is empty.");
+                    } else {
+                        allStudents.forEach(System.out::println);
+                    }
                     break;
+                case 6:
+                     System.out.print("Enter .txt file path (e.g., data.txt): ");
+                     String filePath = sc.nextLine().trim();
+                     mgr.batchUploadFromFile(filePath);
+                     break;
                 default:
-                    System.out.println("Unknown option.");
+                    System.out.println(">> Unknown option.");
             }
         }
     }
