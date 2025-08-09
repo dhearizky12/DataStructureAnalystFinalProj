@@ -167,8 +167,6 @@ public class MainApp {
          * format per line: NIM,Name,IPK
          */
         public void batchUploadFromFile(String filePath) {
-            int successCount = 0;
-            int failedCount = 0;
             try (Stream<String> stream = Files.lines(Paths.get(filePath))) {
                 stream.forEach(line -> {
                     String[] parts = line.split(",");
@@ -180,8 +178,7 @@ public class MainApp {
                         String nim = parts[0].trim();
                         String name = parts[1].trim();
                         double ipk = Double.parseDouble(parts[2].trim());
-                        if (insertStudent(nim, name, ipk)) {
-                        } else {
+                        if (!insertStudent(nim, name, ipk)) {
                            System.out.println(">> SKIPPED: NIM already exists -> " + nim);
                         }
                     } catch (NumberFormatException e) {
@@ -225,6 +222,11 @@ public class MainApp {
         }
     }
 
+    // ---- Utility: print elapsed nicely ----
+    private static void printElapsed(String label, long nanos) {
+        System.out.printf(">> %s - Waktu Eksekusi (Diluar dari Input): %.3f ms (%d ns)%n", label, nanos / 1_000_000.0, nanos);
+    }
+
     // ---- Simple CLI demo ----
     public static void main(String[] args) {
         // Create a new student manager instance
@@ -255,60 +257,104 @@ public class MainApp {
                 System.out.println("Invalid input. Please enter a number.");
                 continue;
             }
+
             switch (choice) {
                 case 0:
                     System.out.println("Exit.");
                     sc.close();
                     return;
-                case 1:
+
+                case 1: {
+                    // Add student (time only the processing, not input)
+                    System.out.print("NIM: "); String nim = sc.nextLine().trim();
+                    System.out.print("Name: "); String name = sc.nextLine().trim();
+                    System.out.print("IPK: ");
+                    double ipk;
                     try {
-                        System.out.print("NIM: "); String nim = sc.nextLine().trim();
-                        System.out.print("Name: "); String name = sc.nextLine().trim();
-                        System.out.print("IPK: "); double ipk = Double.parseDouble(sc.nextLine().trim());
-                        boolean ok = mgr.insertStudent(nim, name, ipk);
-                        System.out.println(ok ? ">> Inserted successfully." : ">> ERROR: NIM already exists.");
+                        ipk = Double.parseDouble(sc.nextLine().trim());
                     } catch (NumberFormatException e) {
                         System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
+                        break;
                     }
+                    long t0 = System.nanoTime();
+                    boolean ok = mgr.insertStudent(nim, name, ipk);
+                    long t1 = System.nanoTime();
+                    System.out.println(ok ? ">> Inserted successfully." : ">> ERROR: NIM already exists.");
+                    printElapsed("Insert", t1 - t0);
                     break;
-                case 2:
+                }
+
+                case 2: {
+                    // Search by NIM
                     System.out.print("NIM to search: "); String q = sc.nextLine().trim();
+                    long t0 = System.nanoTime();
                     Student s = mgr.searchByNim(q);
+                    long t1 = System.nanoTime();
                     System.out.println(s == null ? ">> Not found." : ">> Found: " + s);
+                    printElapsed("Search by NIM", t1 - t0);
                     break;
-                case 3:
+                }
+
+                case 3: {
+                    // Search by IPK
+                    System.out.print("IPK to search: ");
+                    double qipk;
                     try {
-                        System.out.print("IPK to search: "); double qipk = Double.parseDouble(sc.nextLine().trim());
-                        List<Student> out = mgr.searchByIpk(qipk);
-                        if (out.isEmpty()) {
-                            System.out.println(">> No student found with that IPK.");
-                        } else {
-                            System.out.println(">> Found " + out.size() + " student(s):");
-                            out.forEach(System.out::println);
-                        }
+                        qipk = Double.parseDouble(sc.nextLine().trim());
                     } catch (NumberFormatException e) {
-                         System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
+                        System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
+                        break;
                     }
+                    long t0 = System.nanoTime();
+                    List<Student> out = mgr.searchByIpk(qipk);
+                    long t1 = System.nanoTime();
+                    if (out.isEmpty()) {
+                        System.out.println(">> No student found with that IPK.");
+                    } else {
+                        System.out.println(">> Found " + out.size() + " student(s):");
+                        out.forEach(System.out::println);
+                    }
+                    printElapsed("Search by IPK", t1 - t0);
                     break;
-                case 4:
+                }
+
+                case 4: {
+                    // Delete by NIM
                     System.out.print("NIM to delete: "); String d = sc.nextLine().trim();
+                    long t0 = System.nanoTime();
                     boolean removed = mgr.deleteByNim(d);
+                    long t1 = System.nanoTime();
                     System.out.println(removed ? ">> Deleted successfully." : ">> ERROR: NIM not found.");
+                    printElapsed("Delete by NIM", t1 - t0);
                     break;
-                case 5:
+                }
+
+                case 5: {
+                    // List all (measure traversal only, not printing)
                     System.out.println("--- All students (ordered by IPK ascending) ---");
+                    long t0 = System.nanoTime();
                     List<Student> allStudents = mgr.listAllOrderedByIpk();
+                    long t1 = System.nanoTime();
                     if (allStudents.isEmpty()) {
                         System.out.println(">> Database is empty.");
                     } else {
                         allStudents.forEach(System.out::println);
                     }
+                    printElapsed("List (BST inorder traversal)", t1 - t0);
                     break;
-                case 6:
-                     System.out.print("Enter .txt file path (e.g., data.txt): ");
-                     String filePath = sc.nextLine().trim();
-                     mgr.batchUploadFromFile(filePath);
-                     break;
+                }
+
+                case 6: {
+                    // Batch upload (measure file read + processing)
+                    System.out.print("Enter .txt file path (e.g., data.txt): ");
+                    String filePath = sc.nextLine().trim();
+                    long t0 = System.nanoTime();
+                    mgr.batchUploadFromFile(filePath);
+                    long t1 = System.nanoTime();
+                    printElapsed("Batch upload", t1 - t0);
+                    break;
+                }
+
                 default:
                     System.out.println(">> Unknown option.");
             }
