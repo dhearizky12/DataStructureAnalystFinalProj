@@ -1,4 +1,34 @@
-12345,Vincent,3.75
-12343,Dhea,4
-12342,Christoper,3.8
-12341,Allan,3.9
+12376,Giori,Sistem Informasi,3.51
+12375,Felia,Teknik Elektro,3.23
+12374,Mizie,Informatika,3.34
+12373,Nonita,Informatika,3.67
+12372,Ogina,Sistem Informasi,3.41
+12371,Dinar,Manajemen,3.72
+12370,Wimbo,Sistem Informasi,3.14
+12369,Qonita,Fisika,3.12
+12368,Cintia,Fisika,3.45
+12367,Sheila,Informatika,3.85
+12366,Zidan,Informatika,3.63
+12365,Lorie,Sistem Informasi,3.32
+12364,Andika,Manajemen,3.16
+12363,Budiana,Informatika,3.37
+12362,Selvia,Informatika,3.64
+12361,Erika,Manajemen,3.64
+12360,Dedyy,Manajemen,3.64
+12359,Betio,Sistem Informasi,3.64
+12358,Oliha,Sistem Informasi,3.64
+12357,Refio,Manajemen,3.64
+12356,Zamora,Fisika,3.64
+12355,Doni,Manajemen,3.64
+12354,Arian,Teknik Elektro,3.64
+12353,Abrian,Manajemen,3.64
+12352,Felika,Teknik Elektro,3.64
+12351,Putria,Teknik Elektro,3.64
+12350,Ramona,Fisika,3.64
+12349,Ratu,Manajemen,3.64
+12347,Kezia,Fisika,3.78
+12346,Verdi,Manajemen,3.71
+12345,Vincent,Informatika,3.75
+12343,Dhea,Teknik Elektro,4
+12342,Christoper,Fisika,3.8
+12341,Allan,Manajemen,3.9

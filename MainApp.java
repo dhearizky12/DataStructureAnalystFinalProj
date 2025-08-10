@@ -53,8 +53,8 @@ public class MainApp
         @Override
         public String toString() 
         {
-            return String.format("NIM:%s | Name:%s | | Jurusan:%s | IPK:%.2f | MK:%s ", nim, 
-            name, major, ipk, courses.isEmpty()? "Belum ada" : String.join(", ", courses));
+            return String.format("NIM:%s | Name:%s | Jurusan:%s | IPK:%.2f | MK:%s",
+                    nim, name, major, ipk, courses.isEmpty() ? "Belum ada" : String.join(", ", courses));
         }
     }
 
@@ -168,29 +168,39 @@ public class MainApp
         }
     }
 
-    
-// ------------------- Graph for Majors -------------------
-    static class Graph 
+    // ------------------- Weighted Graph for Majors -------------------
+    static class WeightedGraph 
     {
-        private Map<String, List<String>> adj = new HashMap<>();
+        private Map<String, List<Edge>> adj = new HashMap<>();
+
+        static class Edge 
+        {
+            String to;
+            int weight;
+            Edge(String t, int w) { to = t; weight = w; }
+        }
 
         public void addNode(String node) 
         {
             adj.putIfAbsent(node, new ArrayList<>());
         }
 
-        public void addEdge(String from, String to) 
+        public void addEdge(String from, String to, int weight) 
         {
             addNode(from);
             addNode(to);
-            adj.get(from).add(to);
-            adj.get(to).add(from); // undirected
+            adj.get(from).add(new Edge(to, weight));
+            adj.get(to).add(new Edge(from, weight));
         }
 
         public void printGraph() 
         {
             for (String node : adj.keySet()) {
-                System.out.println(node + " -> " + adj.get(node));
+                StringBuilder sb = new StringBuilder(node + " -> ");
+                for (Edge e : adj.get(node)) {
+                    sb.append(e.to).append("(").append(e.weight).append(") ");
+                }
+                System.out.println(sb);
             }
         }
 
@@ -205,27 +215,88 @@ public class MainApp
             while (!q.isEmpty()) {
                 String cur = q.poll();
                 visited.add(cur);
-                for (String neigh : adj.get(cur)) 
+                for (Edge e : adj.get(cur)) 
                 {
-                    if (!seen.contains(neigh)) {
-                        seen.add(neigh);
-                        q.add(neigh);
+                    if (!seen.contains(e.to)) 
+                    {
+                        seen.add(e.to);
+                        q.add(e.to);
                     }
                 }
             }
             return visited;
         }
+
+        public PathResult shortestPath(String source, String target) 
+        {
+            Map<String, Integer> dist = new HashMap<>();
+            Map<String, String> prev = new HashMap<>();
+            for (String node : adj.keySet()) 
+            {
+                dist.put(node, Integer.MAX_VALUE / 2);
+            }
+            dist.put(source, 0);
+
+            PriorityQueue<Map.Entry<String, Integer>> pq =
+                    new PriorityQueue<>(Comparator.comparingInt(Map.Entry::getValue));
+            pq.add(new AbstractMap.SimpleEntry<>(source, 0));
+
+            while (!pq.isEmpty()) 
+            {
+                Map.Entry<String, Integer> current = pq.poll();
+                String u = current.getKey();
+                int d = current.getValue();
+
+                if (d > dist.get(u)) continue;
+                if (u.equals(target)) break;
+
+                for (Edge e : adj.get(u)) 
+                {
+                    int nd = d + e.weight;
+                    if (nd < dist.get(e.to)) 
+                    {
+                        dist.put(e.to, nd);
+                        prev.put(e.to, u);
+                        pq.add(new AbstractMap.SimpleEntry<>(e.to, nd));
+                    }
+                }
+            }
+
+            List<String> path = new LinkedList<>();
+            String cur = target;
+            if (!prev.containsKey(target) && !source.equals(target)) 
+            {
+                return new PathResult(Collections.emptyList(), -1);
+            }
+            while (cur != null) 
+            {
+                path.add(0, cur);
+                cur = prev.get(cur);
+            }
+            return new PathResult(path, dist.get(target));
+        }
     }
 
-    // ---- StudentManager combining HashMap + BST ----
+    static class PathResult 
+    {
+        List<String> path;
+        int totalWeight;
+        PathResult(List<String> path, int totalWeight) 
+        {
+            this.path = path;
+            this.totalWeight = totalWeight;
+        }
+    }
+
+    // ------------------- Student Manager -------------------
     static class StudentManager {
         private Map<String, Student> hashTable; // key: NIM
         private BST bst;
 
         public StudentManager() 
         {
-            this.hashTable = new HashMap<>();
-            this.bst = new BST();
+            hashTable = new HashMap<>();
+            bst = new BST();
         }
 
         // insert new student; returns true if success, false if NIM exists
@@ -245,7 +316,7 @@ public class MainApp
             try (Stream<String> stream = Files.lines(Paths.get(filePath))) {
                 stream.forEach(line -> {
                     String[] parts = line.split(",");
-                    if (parts.length != 3) {
+                    if (parts.length != 4) {
                         System.out.println(">> SKIPPED: Invalid format -> " + line);
                         return;
                     }
@@ -253,7 +324,7 @@ public class MainApp
                         String nim = parts[0].trim();
                         String name = parts[1].trim();
                         String major = parts[2].trim();
-                        double ipk = Double.parseDouble(parts[2].trim());
+                        double ipk = Double.parseDouble(parts[3].trim());
                         if (!insertStudent(nim, name, major, ipk)) {
                             System.out.println(">> SKIPPED: NIM already exists -> " + nim);
                         }
@@ -287,7 +358,6 @@ public class MainApp
             return true;
         }
 
-        // list all students ordered by IPK ascending
         public List<Student> listAllOrderedByIpk() {
             return bst.inorder();
         }
@@ -308,20 +378,21 @@ public class MainApp
 
     // ---- Utility: print elapsed nicely ----
     private static void printElapsed(String label, long nanos) {
-        System.out.printf(">> %s - Waktu Eksekusi (Diluar dari Input): %.3f ms (%d ns)%n", label, nanos / 1_000_000.0, nanos);
+        System.out.printf(">> %s - Waktu Eksekusi: %.3f ms%n", label, nanos / 1_000_000.0);
     }
 
     // ---- Simple CLI demo ----
     public static void main(String[] args) {
         // Create a new student manager instance
         StudentManager mgr = new StudentManager();
-        Graph majorGraph = new Graph();
+        WeightedGraph majorGraph = new WeightedGraph();
 
-        // Sample majors graph
-        majorGraph.addEdge("Informatika", "Sistem Informasi");
-        majorGraph.addEdge("Informatika", "Teknik Elektro");
-        majorGraph.addEdge("Sistem Informasi", "Manajemen");
-        majorGraph.addEdge("Teknik Elektro", "Fisika");
+        // Sample weighted graph
+        majorGraph.addEdge("Informatika", "Sistem Informasi", 4);
+        majorGraph.addEdge("Informatika", "Teknik Elektro", 6);
+        majorGraph.addEdge("Sistem Informasi", "Manajemen", 5);
+        majorGraph.addEdge("Teknik Elektro", "Fisika", 3);
+        majorGraph.addEdge("Fisika", "Manajemen", 10);
 
         // Welcome message
         System.out.println("==============================================");
@@ -333,9 +404,10 @@ public class MainApp
         interactiveMenu(mgr, majorGraph);
     }
 
-    private static void interactiveMenu(StudentManager mgr, Graph majorGraph) 
+    private static void interactiveMenu(StudentManager mgr, WeightedGraph majorGraph) 
     {
         Scanner sc = new Scanner(System.in);
+
         while (true) {
 
             System.out.println("\n=== Sistem Manajemen Mahasiswa ===");
@@ -348,6 +420,7 @@ public class MainApp
             System.out.println("7. Tambah Mata Kuliah ke Mahasiswa");
             System.out.println("8. Lihat Graph Jurusan");
             System.out.println("9. BFS Graph Jurusan");
+            System.out.println("10. Shortest Path antar jurusan (Dijkstra)");
             System.out.println("0. Exit");
             System.out.print("Pilih: ");
             System.out.print("Choice> ");
@@ -366,28 +439,25 @@ public class MainApp
                     System.out.println("Exit.");
                     sc.close();
                     return;
-
                 case 1: {
                     // Add student (time only the processing, not input)
-                    System.out.print("NIM: "); String nim = sc.nextLine().trim();
-                    System.out.print("Name: "); String name = sc.nextLine().trim();
+                    System.out.print("NIM: "); String nim = sc.nextLine();
+                    System.out.print("Name: "); String name = sc.nextLine();
                     System.out.print("Jurusan: "); String major = sc.nextLine();
                     System.out.print("IPK: ");
-                    double ipk;
                     try {
-                        ipk = Double.parseDouble(sc.nextLine().trim());
+                        double ipk = Double.parseDouble(sc.nextLine());
+                        long t0 = System.nanoTime();
+                        boolean ok = mgr.insertStudent(nim, name, major, ipk);
+                        long t1 = System.nanoTime();
+                        System.out.println(ok ? ">> Inserted successfully." : ">> ERROR: NIM already exists.");
+                        printElapsed("Insert", t1 - t0);
                     } catch (NumberFormatException e) {
                         System.out.println(">> ERROR: Invalid IPK format. Please use a number (e.g., 3.75).");
                         break;
                     }
-                    long t0 = System.nanoTime();
-                    boolean ok = mgr.insertStudent(nim, name, major, ipk);
-                    long t1 = System.nanoTime();
-                    System.out.println(ok ? ">> Inserted successfully." : ">> ERROR: NIM already exists.");
-                    printElapsed("Insert", t1 - t0);
                     break;
                 }
-
                 case 2: {
                     // Search by NIM
                     System.out.print("NIM to search: "); String q = sc.nextLine().trim();
@@ -398,9 +468,8 @@ public class MainApp
                     printElapsed("Search by NIM", t1 - t0);
                     break;
                 }
-
                 case 3: {
-                    // Search by IPK
+                   // Search by IPK
                     System.out.print("IPK to search: ");
                     double ipkNeedToSearch;
                     try {
@@ -421,7 +490,6 @@ public class MainApp
                     printElapsed("Search by IPK", t1 - t0);
                     break;
                 }
-
                 case 4: {
                     // Delete by NIM
                     System.out.print("NIM to delete: "); String d = sc.nextLine().trim();
@@ -479,11 +547,23 @@ public class MainApp
                     System.out.print("Mulai BFS dari jurusan: ");
                     String start = sc.nextLine();
                     List<String> bfs = majorGraph.bfs(start);
-                    if (bfs.isEmpty()) System.out.println("Jurusan tidak ditemukan di graph.");
-                    else System.out.println("Hasil BFS: " + String.join(" -> ", bfs));
+                    System.out.println(bfs.isEmpty() ? "Tidak ditemukan" : String.join(" -> ", bfs));
                     break;
                 }
-
+                case 10 : {
+                    System.out.print("Dari: ");
+                    String from = sc.nextLine();
+                    System.out.print("Ke: ");
+                    String to = sc.nextLine();
+                    PathResult result = majorGraph.shortestPath(from, to);
+                    if (result.totalWeight == -1) {
+                        System.out.println("Tidak ada jalur");
+                    } else {
+                        System.out.println("Jalur terpendek: " + String.join(" -> ", result.path));
+                        System.out.println("Total bobot: " + result.totalWeight);
+                    }
+                    break;
+                }                
                 default:
                     System.out.println(">> Unknown option.");
             }
